@@ -30,6 +30,7 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install build
+        
 
     - name: Clean previous build
       run: rm -rf build dist *.egg-info
@@ -38,7 +39,9 @@ jobs:
       run: python -m build
 
     - name: Build with sdist
-      run:  python setup.py sdist
+      run:  |
+        sudo apt-get install python3-setuptools
+        python setup.py sdist
 
     - name: List built packages
       run: ls dist/
