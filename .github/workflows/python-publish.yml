@@ -32,7 +32,7 @@ jobs:
         pip install build
 
     - name: Clean previous build
-      run: rm -rf dist/
+      run: rm -rf build dist *.egg-info
 
     - name: Build package
       run: python -m build
@@ -48,3 +48,4 @@ jobs:
       with:
         user: __token__
         password: ${{ secrets.PYPI_API_TOKEN }}
+        verbose: true
