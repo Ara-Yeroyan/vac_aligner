@@ -42,6 +42,7 @@ jobs:
     - name: Build with sdist
       run:  |
         sudo apt-get install python3-setuptools
+        pip install setuptools~=70.0.0
         python setup.py sdist
 
     - name: List built packages
