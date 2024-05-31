@@ -37,6 +37,9 @@ jobs:
     - name: Build package
       run: python -m build
 
+    - name: Build with sdist
+      run:  python setup.py sdist
+
     - name: List built packages
       run: ls dist/
 
