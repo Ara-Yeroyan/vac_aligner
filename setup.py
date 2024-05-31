@@ -49,6 +49,7 @@ setup(
     test_suite='tests',
     tests_require=test_requirements,
     url='https://github.com/Ara-Yeroyan/vac_aligner',
-    version='0.0.1',
+    download_url='https://github.com/Ara-Yeroyan/vac_aligner/archive/refs/tags/v0.0.1.tar.gz',
+    version='0.0.2',
     zip_safe=False,
 )
