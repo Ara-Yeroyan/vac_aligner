@@ -8,9 +8,6 @@ VAC is a comprehensive pipeline designed for processing long audio recordings th
 2. **ASR (Automatic Speech Recognition)**: Performs inference on each audio chunk to generate text predictions.
 3. **CER (Character Error Rate) Matching**: Aligns the predicted text from ASR with the ground truth transcript to correct errors and ensure high accuracy.
 
-## Usage
-
-The pipeline processes multi-hour long audio and texts to produce many multi-second audio chunks and corresponding texts with an accuracy of 97%. This high accuracy is achieved through sophisticated matching algorithms that correct common ASR errors such as repeated characters, incomplete words, and incorrect word predictions.
 
 ## Installation
 
@@ -24,7 +21,86 @@ If you would like to use only the Matchign Part (say you have your own ASR model
 pip install vac_aligner
 ```
 
-## Pipeline Decomposition
+
+## Usage
+
+The pipeline processes multi-hour long audio and texts to produce many multi-second audio chunks and corresponding texts with an accuracy of 97%. This high accuracy is achieved through sophisticated matching algorithms that correct common ASR errors such as repeated characters, incomplete words, and incorrect word predictions.
+
+There are a couple of ways the library can be used. One can use the full functionality by
+
+```python
+from vac_aligner import run_pipeline
+
+run_pipeline(
+   manifest_file="path/to/save/manifest.json", batch_size=64,
+   asr_input_file="path/to/manifest.json", # or path to folder, containing audio chunks (.wav)s
+   target_base="path/where/to/save/artifacts", # otherwise, will use `asr_input_file`
+   init_aligner_after_asr=True  # If there is no long transcript available and you need to extract it
+)
+```
+
+There are many scenarious where one might need a partial functionality of the pipeline. Then we can use the classes directly.
+
+### Scenario 1
+
+Need to perform ASR over short chunks and store in `nemo_manifest`
+
+```python
+import os
+
+from vac_aligner.dto import ASRConfig
+from vac_aligner.asr import ASR_MAPPING, ASR
+
+language = "hy"  #  Armenain
+model_name = ASR_MAPPING[language] # "Yeroyan/stt_arm_conformer_ctc_large"
+asr_config = ASRConfig(hf_token=os.environ['HF_TOKEN'], batch_size=24)
+asr = ASR(model_name, asr_config)
+asr.run(
+    save_dir="where/to/save/asr/predictions", # .txt(s)
+    save_manifest="path/to/save/manifest.json",
+    wav_files="path/to/wav/files",
+    test_manifest='path/to/manifest/with/predictions.json'
+)
+
+```
+
+### Scenario 2
+
+You already have predictions manifest and/or long transcript, and want to run the Matching to obtain the correct
+chunk texts to replace ASR predictions. 
+
+```python
+from vac_aligner.matching import ArmenianAlignerVAC
+
+output_file = 'path/to/save/combined/transcript.txt'
+predictions_manifest = 'path/to/manifest/with/predictions.json'
+chunks, combined_transcript = ArmenianAlignerVAC.combine_transcript(predictions_manifest,
+                                                                    output_file,
+                                                                    ending_punctuations="․,։")
+```
+and then matching
+
+```python
+from vac_aligner.matching import ArmenianAlignerVAC
+
+target_base = 'path/to/save/artifacts'
+matches_sorted = ArmenianAlignerVAC(combined_transcript, 
+                                    chunks, output_file.replace(".txt", ".json"), 
+                                    target_base=target_base).align(0.35)
+
+```
+
+and get the benchmark
+
+```python
+from vac_aligner.matching.benchmark_on_mcv import Benchmark
+
+benchmark = Benchmark(target_base, predictions_manifest)
+stats = benchmark.get_benchmark()
+benchmark.analyze_and_save_benchmark(stats, output_file)
+```
+
+## Pipeline Explanation
 
 ### 1. Voice Activity Detection (VAD)
 
@@ -58,7 +134,7 @@ These discrepancies mean that a direct match between the original transcript and
 
 **Example Scenarios Illustrating Matching Challenges:**
 
-1. The errorous prediction results in incomplete extraction from the source text (missed/confused some tokens spoken in the chunk audio):
+1. The erroneous prediction results in incomplete extraction from the source text (missed/confused some tokens spoken in the chunk audio):
 
     **Predicted Text  (i<sup>th</sup> chunk):** "Come here Doggyyyy!!, dog, gggy, y?"
 
@@ -66,10 +142,10 @@ These discrepancies mean that a direct match between the original transcript and
 
     **Original Transcript (context):** "... Come here doggy, doggy. Johnny, are you serious? Why did you hit the dog? ..."
 
-  Here, if we naively take "***Come here doggy, doggy,***"  from the source text as the
-  best **CER-based** match (for the i<sup>th</sup> chunk) => the next iteration will incorrectly include "***Johnny***" in the search, causing high CER and misalignment in the future.
+   Here, if we naively take "***Come here doggy, doggy,***"  from the source text as the
+   best **CER-based** match (for the i<sup>th</sup> chunk) => the next iteration will incorrectly include "***Johnny***" in the search, causing high CER and misalignment in the future.
 
-2. The errorous prediction results in redundant extraction from the source text (mistakenly include some tokens not spoken in the i<sup>th</sup> chunk but in (i+1)<sup>th</sup>:
+2. The erroneous prediction results in redundant extraction from the source text (mistakenly include some tokens not spoken in the i<sup>th</sup> chunk but in (i+1)<sup>th</sup>:
 
     **Predicted Text (i<sup>th</sup> chunk):** "Hey Madam, madam. Go mam"
 
