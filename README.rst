@@ -3,13 +3,13 @@ vac_aligner
 ==================
 
 
-.. image:: https://img.shields.io/pypi/v/yeroyan_clustering.svg
+.. image:: https://img.shields.io/pypi/v/vac_aligner.svg
         :target: https://pypi.python.org/pypi/vac_aligner
 
-.. image:: https://img.shields.io/travis/Ara-Yeroyan/yeroyan_clustering.svg
+.. image:: https://img.shields.io/travis/Ara-Yeroyan/vac_aligner.svg
         :target: https://travis-ci.com/Ara-Yeroyan/vac_aligner
 
-.. image:: https://readthedocs.org/projects/yeroyan-clustering/badge/?version=latest
+.. image:: https://readthedocs.org/projects/vac_aligner/badge/?version=latest
         :target: https://vac_aligner.readthedocs.io/en/latest/?version=latest
         :alt: Documentation Status
 

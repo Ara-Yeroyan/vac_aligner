@@ -2,12 +2,12 @@
 History
 =======
 
-0.1.0 (2023-05-08)
+0.0.1 (2024-05-31)
 ------------------
 
 * First release on PyPI.
 
-1. Automated Data Processing (+ PCA)
-2. Dimensionality Reduction through t-SNE
-3. Clustering with KMeans
-4. Post Analysis utilities through plots and stats
+1. Design library structure
+2. Implement 2 main steps of the VAC
+    - ASR
+    - CER based Matching
