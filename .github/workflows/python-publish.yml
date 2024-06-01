@@ -7,6 +7,7 @@ on:
       - completed
     branches:
       - main
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -36,7 +37,7 @@ jobs:
       run: python -m build
 
     - name: Build with sdist
-      run: |
+      run:  |
         sudo apt-get install python3-setuptools
         pip install setuptools~=70.0.0
         python setup.py sdist
