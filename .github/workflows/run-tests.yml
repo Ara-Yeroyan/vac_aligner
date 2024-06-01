@@ -29,6 +29,6 @@ jobs:
 
     - name: Run tests
       run: |
-        pytest tests\matching\metrics.py
-        pytest tests\matching\cutting.py
-        pytest tests\matching\benchmark_on_mcv.py
+        pytest tests/matching/metrics.py
+        pytest tests/matching/cutting.py
+        pytest tests/matching/benchmark_on_mcv.py
