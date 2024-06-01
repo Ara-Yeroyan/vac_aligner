@@ -8,8 +8,8 @@ A subpackage for both matching the chunked texts with single, long transcript an
 
 """
 
-from .align import BaseAlignerVAC, ArmenianAlignerVAC
-from .benchmark_on_mcv import Benchmark
+from vac_aligner.matching.align import ArmenianAlignerVAC
+
 
 ALIGNER_MAPPING = {
     "hy": ArmenianAlignerVAC

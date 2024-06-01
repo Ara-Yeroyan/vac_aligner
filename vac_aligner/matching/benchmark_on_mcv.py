@@ -45,7 +45,7 @@ class Benchmark:
         return benchmark
 
     @staticmethod
-    def analyze_and_save_benchmark(benchmark: pd.DataFrame, output_file: str):
+    def analyze_and_save_benchmark(benchmark: pd.DataFrame, output_file: str) -> pd.DataFrame:
         benchmark.VAC_WER = benchmark.VAC_WER.apply(lambda x: 0. if x == 0 else round(x, 3))
         benchmark.ASR_WER = benchmark.ASR_WER.apply(lambda x: 0. if x == 0 else round(x, 3))
         print(f"Mean WER: {round(100 * benchmark.VAC_WER.sum() / len(benchmark), 3)}%")
@@ -53,6 +53,7 @@ class Benchmark:
         print(f"Accuracy (VAC): {round(100 * len(benchmark[benchmark.VAC_WER == 0]) / len(benchmark.VAC_WER), 3)}%")
         benchmark.to_csv(output_file.replace(".txt", ".csv"), index=False)
         print(benchmark.sample(10))
+        return benchmark
 
 
 if __name__ == "__main__":
