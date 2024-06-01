@@ -7,23 +7,8 @@ from loguru import logger
 
 from .dto import ASRConfig, ALIGNERConfig
 from vac_aligner.asr import ASR, ASR_MAPPING
+from .utils import _validate_asr_info, _validate_aligner_info
 from vac_aligner.matching import ALIGNER_MAPPING, BaseAlignerVAC, Benchmark
-
-
-def _validate_aligner_info(asr_info: Dict) -> ALIGNERConfig:
-    try:
-        validated_asr_info = ALIGNERConfig(**asr_info)
-        return validated_asr_info
-    except TypeError as e:
-        raise ValueError(f"Invalid ASR info provided: {e}")
-
-
-def _validate_asr_info(asr_info: Dict) -> ASRConfig:
-    try:
-        validated_asr_info = ASRConfig(**asr_info)
-        return validated_asr_info
-    except TypeError as e:
-        raise ValueError(f"Invalid ASR info provided: {e}")
 
 
 class VAC:
@@ -148,12 +133,8 @@ class VAC:
         os.makedirs(target_base, exist_ok=True)
         os.makedirs(os.path.dirname(manifest_file), exist_ok=True)
 
-        if not hf_token:
-            hf_token = os.environ.get("HF_TOKEN")
-            if hf_token is None:
-                model_name = ASR_MAPPING[language]
-                raise ValueError("Please, provide hf_token or directly set the hugging face token as ENV - HT_TOKEN."
-                                 f"You might also need to request access at: https://huggingface.co/{model_name}")
+        model_name = ASR_MAPPING[language]
+        ASR.check_hf_credential(model_name, hf_token)
 
         asr_config = {
             'gpu_id': gpu_id,
