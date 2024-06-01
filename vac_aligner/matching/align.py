@@ -9,6 +9,7 @@ from tqdm import tqdm
 from loguru import logger
 
 from .cutting import cut_extra_tokens_from_match
+from vac_aligner.utils import create_nested_folders
 
 
 data_item = Tuple[str, str, float]
@@ -127,6 +128,8 @@ class BaseAlignerVAC(ABC):
         return target_path
 
     def dump_match_info(self, target_path: str, best_match_text: str, match_info: dict):
+        """Writing the matched text as .txt and adding the record line to manifest"""
+        create_nested_folders(target_path)
         with open(target_path, "w", encoding='utf-8') as f:
             f.write(best_match_text.strip())
 
@@ -345,6 +348,9 @@ class BaseAlignerVAC(ABC):
             instance = ClassName.from_nemo_manifest('path/to/manifest.json', 'path/to/transcript.txt',
                                                     'path/to/save/manifest', target_base="abs_path_cwc", use_id=True)
         """
+        create_nested_folders(target_base)
+        create_nested_folders(save_manifest_path)
+
         if transcript_path is None:
             combined_transcript = ""
         else:

@@ -5,6 +5,7 @@ import contextlib
 from typing import List, Tuple, Union, Optional
 
 from vac_aligner.dto import ASRConfig, ChunkData
+from vac_aligner.utils import create_nested_folders
 
 from glob import glob
 
@@ -19,7 +20,16 @@ class ASR:
 
         self.asr_config = asr_config
         self.skip_existing = skip_existing
+        self.check_hf_credential(model_name)
         self.asr_model_bpe: EncDecCTCModelBPE = self.load_model(model_name)
+
+    @staticmethod
+    def check_hf_credential(model_name: str, hf_token: Optional[str] = None):
+        if not hf_token:
+            hf_token = os.environ.get("HF_TOKEN")
+            if hf_token is None:
+                raise ValueError("Please, provide hf_token or directly set the hugging face token as ENV - HT_TOKEN."
+                                 f"You might also need to request access at: https://huggingface.co/{model_name}")
 
     def load_model(self, model_name: str):
         """Load the model (currently support only HF) and map to correct device"""
@@ -80,6 +90,9 @@ class ASR:
         Returns:
              A list of chunks with corresponding info (audio_filepath, chunk_text, chunk_text_path, audio_duration, ...)
         """
+        create_nested_folders(save_dir)
+        create_nested_folders(save_manifest)
+
         wav_files, texts = self.extract_wav_files(wav_files, test_manifest)
         wav2text = {wav_files[i]: texts[i] for i in range(len(wav_files))}
         print(f"#of Audios to Process! {len(wav_files)}")
