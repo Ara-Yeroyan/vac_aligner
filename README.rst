@@ -1,19 +1,16 @@
+.. |pypi_version| image:: https://img.shields.io/pypi/v/vac_aligner.svg
+   :target: https://pypi.python.org/pypi/vac_aligner
+   :alt: PyPI Version
+
+.. |docs_status| image:: https://readthedocs.org/projects/vac_aligner/badge/?version=latest
+   :target: https://vac_aligner.readthedocs.io/en/latest/
+   :alt: Documentation Status
+
 ==================
 vac_aligner
 ==================
 
-
-.. raw:: html
-
-   <p>
-     <a href="https://pypi.python.org/pypi/vac_aligner">
-       <img src="https://img.shields.io/pypi/v/vac_aligner.svg" alt="PyPI Version">
-     </a>
-     <span>VAC - VAD-ASR-CER (Matching) Pipeline</span>
-     <a href="https://vac_aligner.readthedocs.io/en/latest/">
-       <img src="https://readthedocs.org/projects/vac_aligner/badge/?version=latest" alt="Documentation Status">
-     </a>
-   </p>
+|pypi_version| **VAC - VAD-ASR-CER (Matching) Pipeline** |docs_status|
 
 
 Comprehensive pipeline designed for processing long audio recordings through three main stages: Voice Activity Detection (VAD), Automatic Speech Recognition (ASR), and Character Error Rate (CER) Matching. This pipeline is ideal for improving speech recognition models and training Text-to-Speech (TTS) systems with high accuracy.
