@@ -21,7 +21,7 @@ Comprehensive pipeline designed for processing long audio recordings through thr
 
 
 * Free software: Apache Software License 2.0
-* Documentation: https://vac_aligner.readthedocs.io.
+* Documentation: https://vac-aligner.readthedocs.io
 
 
 Features
