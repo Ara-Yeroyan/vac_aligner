@@ -1,12 +1,8 @@
 name: Upload Python Package
 
 on:
-  workflow_run:
-    workflows: ["Run Tests"]
-    types:
-      - completed
-    branches:
-      - main
+  release:
+    types: [published]
   workflow_dispatch:
 
 permissions:
@@ -14,6 +10,7 @@ permissions:
 
 jobs:
   deploy:
+    needs: Run Tests
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
 
