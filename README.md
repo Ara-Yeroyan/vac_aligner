@@ -12,10 +12,10 @@ VAC is a comprehensive pipeline designed for processing long audio recordings th
 ## Installation
 
 ```bash
-pip install vac_aligner['asr']
+pip install vac_aligner['full']
 ```
 
-If you would like to use only the Matchign Part (say you have your own ASR model or predictions) then you can skip the torch and nemo installations by
+If you would like to use only the VAD or the Matching Part (say you have your own ASR model or predictions) then you can skip the torch and nemo installations by
 
 ```bash
 pip install vac_aligner
@@ -192,4 +192,25 @@ So, in other words, our matching algorithm is dynamic in that it always adjusts 
 
 * **Final Match:** The last segment "***the're livd a kng***" is matched with "there lived a king".
 
-The algorithm ensures that each predicted text chunk aligns as closely as possible with the corresponding part of the original transcript, even if the matches are not exact. This dynamic and greedy approach helps in mitigating sequential errors and ensures a more accurate alignment overall.
+The algorithm ensures that each predicted text chunk aligns as closely as possible with the corresponding
+part of the original transcript, even if the matches are not exact. This dynamic and greedy approach helps in mitigating
+sequential errors and ensures a more accurate alignment overall.
+
+## Authors and Acknowledgements
+- **Main Author**: Ara Yeroyan - Responsible for the primary development and maintenance of the project.
+- **Contributor (Supervisor)**: Dr. Nikolay Karpov - An esteemed scientist who provided expert oversight and significantly contributed to the conceptual framework, research methodologies, and strategic direction of the project and its publication.
+
+## Citing This Work
+If you use this project or its components in your research or software, please consider citing it:
+
+```bibtex
+@misc{YourProject,
+  author = {Ara Yeroyan and Nikolay Karpov},
+  title = {VAC - framework for aligning extremely long audios and texts},
+  year = {2024},
+  publisher = {https://github.com/Ara-Yeroyan},
+  howpublished = {\url{arxiv.org}}
+}
+```
+
+
