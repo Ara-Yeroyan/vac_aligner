@@ -21,4 +21,10 @@ __author__ = """Ara Yeroyan"""
 __email__ = 'ar23yeroyan@gmail.com'
 __version__ = '0.0.5'
 
-from .vac_pipeline import run_pipeline
+try:
+    from .vac_pipeline import run_pipeline
+except (ImportError, ModuleNotFoundError) as e:
+    import os
+    print(e.__str__())
+    if not os.environ["NOT_IGNORE_IMPORTS"]:
+        raise e
