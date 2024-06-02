@@ -8,13 +8,23 @@ Installation
 Stable release
 --------------
 
-To install vac_aligner, run this command in your terminal:
+To install `vac_aligner`, run this command in your terminal:
 
 .. code-block:: console
 
-    $ pip install vac_aligner
+    $ pip install vac_aligner['full']
 
 This is the preferred method to install vac_aligner, as it will always install the most recent stable release.
+
+The 2nd part of our pipeline requires  `nemo-toolkit['asr']` which can make the library very heavy,
+especially, for GPU compatible torch version. Thus, you can skip this **extra** installations.
+
+.. code-block:: bash
+
+   pip install vac_aligner
+
+Now you can use VAD or the Matching Part (say you have your own ASR model or predictions) while skipping the `torch` and `nemo` installations!
+
 
 If you don't have `pip`_ installed, this `Python installation guide`_ can guide
 you through the process.

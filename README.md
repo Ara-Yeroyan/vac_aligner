@@ -11,16 +11,22 @@ VAC is a comprehensive pipeline designed for processing long audio recordings th
 
 ## Installation
 
+To install `vac_aligner`, run this command in your terminal:
+
 ```bash
 pip install vac_aligner['full']
 ```
 
-If you would like to use only the VAD or the Matching Part (say you have your own ASR model or predictions) then you can skip the torch and nemo installations by
+This is the preferred method to install vac_aligner, as it will always install the most recent stable release.
 
+The 2nd part of our pipeline requires  `nemo-toolkit['asr']` which can make the library very heavy,
+especially, for GPU compatible torch version. Thus, you can skip this **extra** installations.
 ```bash
 pip install vac_aligner
 ```
 
+Now you can use VAD or the Matching Part (say you have your own ASR model
+or predictions) while skipping the `torch` and `nemo` installations!
 
 ## Usage
 
@@ -39,7 +45,7 @@ run_pipeline(
 )
 ```
 
-There are many scenarious where one might need a partial functionality of the pipeline. Then we can use the classes directly.
+There are many scenarios where one might need a partial functionality of the pipeline. Then we can use the classes directly.
 
 ### Scenario 1
 
