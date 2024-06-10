@@ -1,6 +1,13 @@
+[![PyPI Version](https://img.shields.io/pypi/v/vac_aligner.svg)](https://pypi.python.org/pypi/vac_aligner) **vac_aligner**
+[![Documentation Status](https://readthedocs.org/projects/vac_aligner/badge/?version=latest)](https://vac_aligner.readthedocs.io/en/latest/)
+
+
 # VAC - VAD-ASR-CER (Matching) Pipeline
 
-VAC is a comprehensive pipeline designed for processing long audio recordings through three main stages: Voice Activity Detection (VAD), Automatic Speech Recognition (ASR), and Character Error Rate (CER) Matching. This pipeline is ideal for improving speech recognition models and training Text-to-Speech (TTS) systems with high accuracy.
+Comprehensive pipeline designed for processing long audio recordings through three main stages: Voice Activity Detection (VAD), Automatic Speech Recognition (ASR), and Character Error Rate (CER) Matching. This pipeline is ideal for improving speech recognition models and training Text-to-Speech (TTS) systems with high accuracy.
+
+- Free software: Apache Software License 2.0
+- Documentation: [https://vac-aligner.readthedocs.io](https://vac-aligner.readthedocs.io)
 
 ## Components
 
@@ -210,13 +217,11 @@ sequential errors and ensures a more accurate alignment overall.
 If you use this project or its components in your research or software, please consider citing it:
 
 ```bibtex
-@misc{YourProject,
+@misc{Enable ASR for low-resource languages,
   author = {Ara Yeroyan and Nikolay Karpov},
   title = {VAC - framework for aligning extremely long audios and texts},
   year = {2024},
   publisher = {https://github.com/Ara-Yeroyan},
-  howpublished = {\url{arxiv.org}}
+  howpublished = {https://arxiv.org/abs/2406.01446}
 }
 ```
-
-
