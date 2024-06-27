@@ -42,6 +42,7 @@ class Benchmark:
                 asr_wer = calculate_wer(orig_text,pred_text)
                 vac_wer = calculate_wer(orig_text, matched_text)
                 benchmark.iloc[i, :] = [orig_text, pred_text, matched_text, vac_wer, item.get('wer', asr_wer), duration, path]
+        benchmark.drop_duplicates(inplace=True)   # if somehow some rows are empty: 0s
         return benchmark
 
     @staticmethod
