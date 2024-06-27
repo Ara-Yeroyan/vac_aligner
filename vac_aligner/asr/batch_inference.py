@@ -4,6 +4,8 @@ import wave
 import contextlib
 from typing import List, Tuple, Union, Optional
 
+import pandas as pd
+
 from vac_aligner.dto import ASRConfig, ChunkData
 from vac_aligner.utils import create_nested_folders
 
@@ -48,7 +50,9 @@ class ASR:
             raise NotImplemented
 
     @staticmethod
-    def extract_wav_files(wav_files: Union[str, List[str]], test_manifest: Optional[str] = None) -> Tuple[List[str], List[Optional[str]]]:
+    def extract_wav_files(wav_files: Union[str, List[str]], test_manifest: Optional[str] = None,
+                          audio_sentence_map: Optional[pd.DataFrame] = None) -> Tuple[List[str], List[Optional[str]]]:
+        """Extract audios and corresponding texts from various input formats (dataframe, NeMo json, source wav_dir)"""
         if test_manifest:
             texts = []
             wav_files = []
@@ -61,11 +65,16 @@ class ASR:
         else:
             if isinstance(wav_files, str):
                 wav_files = glob(wav_files+"/*.wav")
-            texts = [None for _ in range(len(wav_files))]
+            try:
+                texts = [audio_sentence_map.loc[os.path.basename(wav_path).replace(".wav", ".mp3"), 'sentence'] for wav_path in wav_files]
+            except Exception as e:
+                print(e.__str__())
+                texts = [None for _ in range(len(wav_files))]
         return wav_files, texts
 
     def run(self, wav_files: Union[str, List[str]], save_dir: Optional[str] = None,
-            save_manifest: Optional[str] = None, test_manifest: Optional[str] = None) -> List[ChunkData]:
+            save_manifest: Optional[str] = None, test_manifest: Optional[str] = None,
+            audio_sentence_map: Optional[pd.DataFrame] = None) -> List[ChunkData]:
         """
 
         Inference with while (batched) as loading too many audios decreases the performance
@@ -93,7 +102,7 @@ class ASR:
         create_nested_folders(save_dir)
         create_nested_folders(save_manifest)
 
-        wav_files, texts = self.extract_wav_files(wav_files, test_manifest)
+        wav_files, texts = self.extract_wav_files(wav_files, test_manifest, audio_sentence_map=audio_sentence_map)
         wav2text = {wav_files[i]: texts[i] for i in range(len(wav_files))}
         print(f"#of Audios to Process! {len(wav_files)}")
         b_size = self.asr_config.batch_size
@@ -106,11 +115,11 @@ class ASR:
                 batch_end += b_size
                 continue
             preds = self.asr_model_bpe.transcribe(batch)
+            if isinstance(preds[0], list):  # some NeMo models may return [[asr_preds], [asr_preds]]. shape: [2, n_batch]
+                preds = preds[0]
             for i, wav in enumerate(batch):
                 duration = self.get_wav_duration(wav)
                 chunk_txt = self.wav2text_path(wav, save_dir)
-                # if os.path.exists(chunk_txt):
-                #     continue
                 with open(chunk_txt, "w", encoding='utf-8') as f:
                     f.write(preds[i])
                 full_preds.append(
@@ -133,6 +142,8 @@ class ASR:
             print("Running on the last (partial) batch!")
             text_batch = texts[batch_end - b_size:batch_end]
             preds = self.asr_model_bpe.transcribe(not_processed)
+            if isinstance(preds[0], list): # some NeMo models may return [[asr_preds], [asr_preds]]. shape: [2, n_batch]
+                preds = preds[0]
             for i, wav in enumerate(not_processed):
                 chunk_txt = wav.replace(".wav", ".txt")
                 if os.path.exists(chunk_txt):
@@ -151,7 +162,7 @@ class ASR:
                 )
 
         print(f"#of Audios Successfully Processed! [{len(full_preds)}/{len(wav_files)}]")
-        if save_manifest:
+        if save_manifest and full_preds:  # maybe all the files were skipped
             self.write_to_manifest(full_preds, save_manifest)
         return full_preds
 

@@ -58,13 +58,15 @@ class VAC:
         return [tuple(x[:-1]) for x in matches_sorted]
 
     def run_asr(self, wav_files: Union[str, List[str]], save_dir: Optional[str] = None,
-            save_manifest: Optional[str] = None, test_manifest: Optional[str] = None):
+                save_manifest: Optional[str] = None, test_manifest: Optional[str] = None,
+                audio_sentence_map: Optional[pd.DataFrame] = None):
 
         chunk_data = self.asr_model.run(
             save_dir=save_dir,
             wav_files=wav_files,
             save_manifest=save_manifest,
-            test_manifest=test_manifest
+            test_manifest=test_manifest,
+            audio_sentence_map=audio_sentence_map
         )
 
         if self.init_aligner_after_asr:
@@ -77,13 +79,15 @@ class VAC:
         return self.aligner.align(cer_bound)
 
     def __call__(self, wav_files: Union[str, List[str]], save_dir: Optional[str] = None,
-            save_manifest: Optional[str] = None, test_manifest: Optional[str] = None):
+                 save_manifest: Optional[str] = None, test_manifest: Optional[str] = None,
+                 audio_sentence_map: Optional[pd.DataFrame] = None):
 
         self.run_asr(
             save_dir=save_dir,
             wav_files=wav_files,
             save_manifest=save_manifest,
-            test_manifest=test_manifest
+            test_manifest=test_manifest,
+            audio_sentence_map=audio_sentence_map
         )
 
         self.aligner.align(0.35)
@@ -91,7 +95,8 @@ class VAC:
     @classmethod
     def run_end2end(cls, manifest_file: str, asr_input_file: str, language: str = "hy", init_aligner_after_asr = False,
                     target_base: Optional[str] = None, ending_punctuations: Optional[str] = '․,։', hf_token: str = '',
-                    cer_bound: float=0.35,  batch_size: int = 15, gpu_id: Optional[int] = 0) -> pd.DataFrame:
+                    cer_bound: float=0.35,  batch_size: int = 15, gpu_id: Optional[int] = 0,
+                    audio_sentence_map: Optional[pd.DataFrame] = None) -> pd.DataFrame:
         """Initialising VAC and running ASR -> obtained predictions manifest, run Aligner (combine transcript and match)
 
         Parameters:
@@ -129,6 +134,11 @@ class VAC:
 
             batch_size : int
                 The number of samples to process in a batch.
+
+            audio_sentence_map : pd.DataFrame
+                Sometimes one might only have test.tsv from MCV dataset (no NeMo format test_manifest). Thus, to combine
+                the original `text` s from the MCV dataset, to then benchmark the vac_aligner, we need the dataframe
+                with original sentences (to merge into single long transcript)
         """
         os.makedirs(target_base, exist_ok=True)
         os.makedirs(os.path.dirname(manifest_file), exist_ok=True)
@@ -156,7 +166,8 @@ class VAC:
         print("Initialized VAC!")
         asr_payload = dict(
             save_dir=target_base,
-            save_manifest=manifest_file
+            save_manifest=manifest_file,
+            audio_sentence_map=audio_sentence_map
         )
         if asr_input_file.endswith(".json"):
             asr_payload['wav_files'] = None
@@ -164,6 +175,7 @@ class VAC:
         else:
             asr_payload['wav_files'] = asr_input_file
 
+        print("ASR Payload")
         vac.run_asr(**asr_payload)
         print("Finished ASR inference!")
 

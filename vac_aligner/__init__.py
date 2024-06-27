@@ -26,5 +26,6 @@ try:
 except (ImportError, ModuleNotFoundError) as e:
     import os
     print(e.__str__())
-    if not os.environ["NOT_IGNORE_IMPORTS"]:
+    if not os.environ.get("NOT_IGNORE_IMPORTS"):
         raise e
+    from vac_pipeline import run_pipeline
