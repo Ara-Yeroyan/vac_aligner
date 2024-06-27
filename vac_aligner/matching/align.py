@@ -374,6 +374,7 @@ class BaseAlignerVAC(ABC):
         if use_id:
             chunks = sorted(chunks, key=lambda x: x[-1])
         chunks = [tuple(chunk[:-1]) for chunk in chunks]
+        print(f"Found #{len(chunks)}chunks")
         return cls(combined_transcript, chunks, save_manifest_path, target_base=target_base)
 
     @staticmethod
@@ -421,6 +422,27 @@ class ArmenianAlignerVAC(BaseAlignerVAC):
                 best_match_text = "ո" + best_match_text
                 best_match_range = (best_match_range[0] - 1, best_match_range[1])
 
+        return best_match_text, best_match_range
+
+
+class GeorgianAlignerVAC(BaseAlignerVAC):
+    """Aligner for Armenian Language"""
+
+    @property
+    def language_id(self):
+        return "ka"
+
+    @property
+    def ending_punctuations(self) -> str:
+        return '.,:჻'
+
+    @staticmethod
+    def language_specific_cleaning(chunk_text: str):
+        """Language Specific text cleaning should be implemented here"""
+        return chunk_text
+
+    def language_specific_postprocessing(self, best_match_text: str, best_match_range: Tuple[int, int]) -> Tuple[str, Tuple[int, int]]:
+        """Based on the language, some specific grammatical rules might be needed"""
         return best_match_text, best_match_range
 
 
