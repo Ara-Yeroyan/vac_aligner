@@ -51,8 +51,10 @@ class ASR:
 
     @staticmethod
     def extract_wav_files(wav_files: Union[str, List[str]], test_manifest: Optional[str] = None,
-                          audio_sentence_map: Optional[pd.DataFrame] = None) -> Tuple[List[str], List[Optional[str]]]:
+                          audio_sentence_map: Optional[pd.DataFrame] = None) -> \
+            Tuple[List[str], List[Optional[str]], List[str]]:
         """Extract audios and corresponding texts from various input formats (dataframe, NeMo json, source wav_dir)"""
+        sources = []
         if test_manifest:
             texts = []
             wav_files = []
@@ -61,6 +63,7 @@ class ASR:
                     item = json.loads(line)
                     texts.append(item.get("text", None))
                     wav_files.append(item["audio_filepath"])
+                    sources.append(item.get("source_filepath"))
             print("Loaded only Test audios given in the optional manifest!")
         else:
             if isinstance(wav_files, str):
@@ -70,7 +73,7 @@ class ASR:
             except Exception as e:
                 print(e.__str__())
                 texts = [None for _ in range(len(wav_files))]
-        return wav_files, texts
+        return wav_files, texts, sources
 
     def run(self, wav_files: Union[str, List[str]], save_dir: Optional[str] = None,
             save_manifest: Optional[str] = None, test_manifest: Optional[str] = None,
@@ -101,12 +104,15 @@ class ASR:
         """
         create_nested_folders(save_dir)
         create_nested_folders(save_manifest)
-
-        wav_files, texts = self.extract_wav_files(wav_files, test_manifest, audio_sentence_map=audio_sentence_map)
+        print(f'test_manifest: {test_manifest}')
+        wav_files, texts, sources = self.extract_wav_files(wav_files,
+                                                           test_manifest,
+                                                           audio_sentence_map=audio_sentence_map)
         wav2text = {wav_files[i]: texts[i] for i in range(len(wav_files))}
+        wav2source = {wav_files[i]: sources[i] if sources else None for i in range(len(wav_files))}
         print(f"#of Audios to Process! {len(wav_files)}")
         b_size = self.asr_config.batch_size
-        batch_end = b_size * 1
+        batch_end = b_size * os.environ.get("BATCH_MULTIPLIER", 1)
         full_preds = []
 
         while batch_end <= len(wav_files):
@@ -128,7 +134,8 @@ class ASR:
                         duration=duration,
                         save_path=chunk_txt,
                         asr_prediction=preds[i],
-                        text=wav2text[wav]
+                        text=wav2text[wav],
+                        source_audio=wav2source[wav]
                     )
                 )
             batch_end += b_size
@@ -157,7 +164,8 @@ class ASR:
                         duration=duration,
                         save_path=chunk_txt,
                         asr_prediction=preds[i],
-                        text=wav2text[wav]
+                        text=wav2text[wav],
+                        source_audio=wav2source[wav]
                     )
                 )
 
@@ -179,6 +187,10 @@ class ASR:
                 text = item.text
                 if text:
                     raw['text'] = text
+
+                source = item.source_audio
+                if source:
+                    raw['source_audio'] = source
                 f.write(json.dumps(raw, ensure_ascii=False)+"\n")
 
     @staticmethod
