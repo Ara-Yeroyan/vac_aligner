@@ -2,5 +2,5 @@ regex~=2024.5.15
 tqdm~=4.66.4
 loguru~=0.7.2
 setuptools~=70.0.0
-pandas
-soundfile
+pandas~=2.2.0
+soundfile~=0.12.1
