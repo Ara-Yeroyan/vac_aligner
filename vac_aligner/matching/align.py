@@ -1,4 +1,6 @@
+import multiprocessing
 import os
+import sys
 import json
 from abc import ABC, abstractmethod
 from typing import List, Tuple, Optional
@@ -13,6 +15,9 @@ from vac_aligner.utils import create_nested_folders
 
 
 data_item = Tuple[str, str, float]
+log_format = "{time:HH:mm:ss} | {level} | {name}_{function}:{line} | {message}"
+logger.remove()  # Remove default handler
+logger.add(sys.stdout, format=log_format)
 
 
 class BaseAlignerVAC(ABC):
@@ -56,6 +61,7 @@ class BaseAlignerVAC(ABC):
             The number of characters to trim from the ends of a long search segment during processing. Default is 30.
 
         """
+        self._aca_var = 0
         self.target_base = target_base
         self.lost_search_cer = lost_search_cer
         self.shift_back_minimum_bound = shift_back_minimum_bound
@@ -63,6 +69,7 @@ class BaseAlignerVAC(ABC):
         self.search_segment_length_upper_bound = search_segment_length_upper_bound
         self.reduce_long_search_segment = reduce_long_search_segment
 
+        self.output_matches = []
         self.memory = [chunks, reference_text, predictions_manifest_path]
         self.restore_memory()
 
@@ -72,7 +79,7 @@ class BaseAlignerVAC(ABC):
         """Identifier for the language (e.g. Armenian, Georgian, etc.)"""
         ...
 
-    def restore_memory(self):
+    def restore_memory(self, idx_for_ref_text: int = 0):
         """Used to restore original Texts and Chunks to (re)run the algorithm"""
         self.chunks, self.reference_text, self.manifest_path = self.memory
         self.cut_the_header()
@@ -87,7 +94,7 @@ class BaseAlignerVAC(ABC):
         self.previous_pack = None
         self.try_combinations = False
         self.sequential_big_mismatches = []  # store metadata (chunks) of sequential mismatches (CER > 0.5)
-        self.cer_cum = [0 for _ in range(15)]  # we terminate the algorithm if 15times in a row CER is 0.5+
+        self.cer_cum = [0 for _ in range(8)]  # we terminate the algorithm if 15times in a row CER is 0.5+
 
     @property
     def default_ellipsis(self):
@@ -127,29 +134,42 @@ class BaseAlignerVAC(ABC):
                                        audio_name.replace(".wav", "_matched.txt"))
         return target_path
 
-    def dump_match_info(self, target_path: str, best_match_text: str, match_info: dict):
+    def dump_match_info(self, target_path: str, best_match_text: str, match_info: dict,
+                        lock: Optional[multiprocessing.Lock] = None):
         """Writing the matched text as .txt and adding the record line to manifest"""
         create_nested_folders(target_path)
-        with open(target_path, "w", encoding='utf-8') as f:
-            f.write(best_match_text.strip())
+        if lock is None:
+            class Lock:
+                def acquire(self):
+                    ...
 
-        if not os.path.exists(self.manifest_path):
-            os.makedirs(os.path.dirname(self.manifest_path), exist_ok=True)
-            with open(self.manifest_path, "w", encoding='utf-8') as f:
-                f.write(json.dumps(match_info, ensure_ascii=False) + "\n")
-        else:
-            with open(self.manifest_path, "a", encoding='utf-8') as f:
-                f.write(json.dumps(match_info, ensure_ascii=False) + "\n")
+                def release(self):
+                    ...
+            lock = Lock()
+        lock.acquire()
+        try:
+            with open(target_path, "w", encoding='utf-8') as f:
+                f.write(best_match_text.strip())
+
+            if not os.path.exists(self.manifest_path):
+                os.makedirs(os.path.dirname(self.manifest_path), exist_ok=True)
+                with open(self.manifest_path, "w", encoding='utf-8') as f:
+                    f.write(json.dumps(match_info, ensure_ascii=False) + "\n")
+            else:
+                with open(self.manifest_path, "a", encoding='utf-8') as f:
+                    f.write(json.dumps(match_info, ensure_ascii=False) + "\n")
+        finally:
+            lock.release()
 
     def handle_mismatches(self) -> Tuple[Tuple[int, int], str, str, bool]:
-        """Handle sequentiall big mismatches by coming to the past, and taking the first best output"""
+        """Handle sequential big mismatches by coming to the past, and taking the first best output"""
         sequential_big_mismatches = sorted(self.sequential_big_mismatches, key=lambda x: x[2])
         window_text, chunk_text, cer, start_pos, end_pos, _ = sequential_big_mismatches[0]
         best_cer = cer
         best_match_range = (start_pos, end_pos)
         best_match_text = window_text
         found_acceptable_match = True  # after handling this problematic chunk need to proceed to the next chunk
-        self.shift_back = min(len(window_text) // 2, self.shift_back_minimum_bound )
+        self.shift_back = min(len(window_text) // 2, self.shift_back_minimum_bound)
         tokens_ = re.findall(r'\S+|\s+', window_text)
         if not tokens_:
             logger.warning(sequential_big_mismatches)
@@ -165,7 +185,9 @@ class BaseAlignerVAC(ABC):
         self.search_start_pos = end_pos - self.shift_back
         self.previous_pack = [len(window_text), best_cer]
         self.try_combinations = True
-        logger.warning(f"Potentially problematic: {sequential_big_mismatches[0]}")
+        # self.shift_back = 0
+        window_text, chunk_text, cer, start_pos, end_pos, sources = sequential_big_mismatches[0]
+        logger.warning(f"Potentially problematic: {[cer, window_text, chunk_text, start_pos, end_pos, sources]}")
         return best_match_range, chunk_text, best_match_text, found_acceptable_match
 
 
@@ -186,7 +208,7 @@ class BaseAlignerVAC(ABC):
         """Based on the language, some specific grammatical rules might be needed"""
         return best_match_text, best_match_range
 
-    def update_window(self, window_text: str, chunk_text: str, start_pos: int):
+    def update_window(self, window_text: str, chunk_text: str, start_pos: int, end_pos: int):
         """Need to Update the Rolling Window over Source Transcript (if it is >> chunk_text)"""
         new_window_text, cer, to_shift = cut_extra_tokens_from_match(window_text,
                                                                      chunk_text,
@@ -195,12 +217,27 @@ class BaseAlignerVAC(ABC):
         clen = len(chunk_text)
         wlen = len(window_text)
         if (clen * 6 < len(window_text)) or (clen < self.search_segment_length_upper_bound < wlen):
-            smaller_window, cer2, shift2 = cut_extra_tokens_from_match(window_text[-self.reduce_long_search_segment:],
+            longer_window = self.reference_text[start_pos:end_pos+10]
+
+            logger.debug("Extra length difference between chunk text and source text")
+            c_text = chunk_text
+            w_text = window_text
+            smaller_window, cer2, shift2 = cut_extra_tokens_from_match(window_text[self.reduce_long_search_segment:],
                                                                        chunk_text,
                                                                        self.try_combinations)
+
+            smaller_window3, cer3, shift3 = cut_extra_tokens_from_match(longer_window,
+                                                                       chunk_text,
+                                                                       self.try_combinations)
+
+            if cer3 <= cer2:
+                smaller_window, cer2, shift2 = smaller_window3, cer3, shift3
+
             if cer2 <= cer:
-                start_pos += wlen - self.reduce_long_search_segment  # adjust starting position as cut last 30chars
+                start_pos += wlen - self.reduce_long_search_segment  # adjust starting position as cut first 30chars
                 new_window_text, cer, to_shift = smaller_window, cer2, shift2
+
+            logger.debug(f"Extra with solved  CER: {cer}!\nchunk_text: {c_text}\n window_text: {w_text}")
 
         return new_window_text, cer, to_shift, start_pos
 
@@ -216,7 +253,11 @@ class BaseAlignerVAC(ABC):
             return self.matches
 
     def parse_chunk_and_prepare_iter(self, chunk: data_item) -> Tuple[Tuple, Tuple]:
-        original_path, chunk_text, chunk_duration = chunk
+        try:
+            sources = None
+            original_path, chunk_text, chunk_duration = chunk
+        except:
+            original_path, chunk_text, chunk_duration, sources = chunk
         chunk_text = self.clean_chunk_text(chunk_text)
         target_path = self.get_target_path(original_path)
         os.makedirs(os.path.dirname(target_path), exist_ok=True)
@@ -227,47 +268,77 @@ class BaseAlignerVAC(ABC):
         found_acceptable_match = False
         self.sequential_big_mismatches = []
 
-        if self.previous_pack:  # previous chunk was added if len(sequential_big_mismatches) > 4:
-            if self.previous_pack[-1] > 0.3:
-                self.shift_back += self.previous_pack[0]
-                self.search_start_pos -= self.previous_pack[0]
-                self.search_start_pos = max(self.search_start_pos, 0)
-                self.try_combinations = True
+        # if self.previous_pack:  # previous chunk was added if len(sequential_big_mismatches) > 4:
+        #     if self.previous_pack[-1] > 0.3:
+        #         self.shift_back += self.previous_pack[0]
+        #         self.search_start_pos -= self.previous_pack[0]
+        #         self.search_start_pos = max(self.search_start_pos, 0)
+        #         self.try_combinations = True
 
-        return ((original_path, target_path, chunk_text, chunk_duration),
+        return ((original_path, target_path, chunk_text, chunk_duration, sources),
                 (best_cer, best_match_range, best_match_text, found_acceptable_match))
 
-    def align(self, cer_threshold=0.35):
+    def align(self, cer_threshold=0.35, lock: Optional[multiprocessing.Lock] = None):
+
+        if lock is not None:
+            import contextvars
+            from loguru import logger
+
+            logger_source_name = contextvars.ContextVar("logger_source_name", default="default_id")
+            log_format = "{time:HH:mm:ss} | {level} | {message} | ID: {extra[id]}"
+            logger.remove()  # Remove default handler
+            logger.add(sys.stdout, format=log_format)
+            logger = logger.patch(lambda record: record["extra"].update(id=logger_source_name.get()))
+
+            def set_log_id(new_id):
+                logger_source_name.set(new_id)
         try:
+            prev_source_name = None
             for ind, chunk in tqdm(enumerate(self.chunks)):
-                self.check_lost_scenario()
+                lost = self.check_lost_scenario()
+                if lost:
+                    return lost
 
                 chunk_metadata, init_states = self.parse_chunk_and_prepare_iter(chunk)
-                original_path, target_path, chunk_text, chunk_duration = chunk_metadata
+                original_path, target_path, chunk_text, chunk_duration, sources = chunk_metadata
                 best_cer, best_match_range, best_match_text, found_acceptable_match = init_states
 
-                for start_pos in range(self.search_start_pos, len(self.reference_text)):
+                if sources:
+                    if lock is not None:
+                        logger_id = sources[0].split("/")[-1].split("\\")[-1]
+                        set_log_id(logger_id)
+
+                    if prev_source_name is None:
+                        prev_source_name = sources[0]
+                    else:
+                        if sources[0] != prev_source_name:
+                            logger.info(f"The source audio changed from {prev_source_name} -- to -- {sources[0]}")
+                            self.memory = (self.chunks[ind:], sources[1], self.manifest_path)
+                            self.restore_memory()
+                            res = self.align()
+                            if not res:
+                                logger.warning(f"Got empty alignment for source: {prev_source_name} -> {sources[0]}")
+                                return
+                            self.output_matches.extend(res)
+                            return res
+
+                for start_pos in range(self.search_start_pos, self.search_start_pos+len(chunk_text)*4):
                     if len(self.sequential_big_mismatches) > self.shift_back_indicator:
                         best_match_range, chunk_text, best_match_text, found_acceptable_match = self.handle_mismatches()
                         break
 
                     to_add = 0
-                    end_pos = start_pos + len(chunk_text)
-                    window_text = self.reference_text[start_pos:end_pos + 6 + self.shift_back]
+                    end_pos = start_pos + len(chunk_text) + 6 + self.shift_back
+                    window_text = self.reference_text[start_pos:end_pos]
                     if self.default_ellipsis in window_text and self.default_ellipsis not in chunk_text:
                         window_text = window_text.replace(self.default_ellipsis, "")
                         to_add = 3  # as ignored 3chars from source segment
 
-                    new_window_text, cer, to_shift, start_pos = self.update_window(window_text, chunk_text, start_pos)
+                    new_window_text, cer, to_shift, start_pos = self.update_window(window_text, chunk_text, start_pos, end_pos)
                     start_pos += to_shift
                     window_text = new_window_text
-
                     # end_pos - (len(window_text) - len(new_window_text))
                     end_pos = start_pos + len(window_text) + to_add
-
-                    self.sequential_big_mismatches.append([new_window_text, chunk_text, cer, start_pos, end_pos, ind - 1])
-                    self.try_combinations = False
-                    self.shift_back = 0
 
                     if cer < best_cer:
                         best_cer = cer
@@ -280,8 +351,15 @@ class BaseAlignerVAC(ABC):
                         self.search_start_pos = end_pos
                         break
 
-                if not found_acceptable_match:
-                    self.search_start_pos += len(chunk_text)  # adjust search start position conservatively
+                    else:
+                        self.sequential_big_mismatches.append(
+                            [new_window_text, chunk_text, cer, start_pos, end_pos, ind - 1])
+                        self.try_combinations = False
+                        self.shift_back = 0
+
+                else:
+                    logger.info(f"Failed to find a match for chunk: {chunk_text}")
+                    self.search_start_pos += len(chunk_text)//4  # adjust search start position conservatively
 
                 best_match_text, best_match_range = self.language_specific_postprocessing(best_match_text,
                                                                                           best_match_range)
@@ -297,21 +375,25 @@ class BaseAlignerVAC(ABC):
                     'cer': best_cer,
                     'duration': chunk_duration,
                 }
+                if sources:
+                    match_info.update({'source_audio': sources[0], 'source_text': sources[1]})
 
                 self.cer_cum = self.cer_cum[1:] + [best_cer]
                 self.matches.append(match_info)
                 self.durs.append(len(self.sequential_big_mismatches))
                 self.current_time += chunk_duration
-                self.dump_match_info(target_path, best_match_text, match_info)
+                self.dump_match_info(target_path, best_match_text, match_info, lock)
 
         except KeyboardInterrupt:
             logger.error(self.matches)
 
-        return self.matches
+        self.output_matches.extend(self.matches)
+        return self.output_matches
 
     @classmethod
     def from_nemo_manifest(cls, manifest_file: str,  save_manifest_path: str, transcript_path: Optional[str] = None,
-                           use_id: bool = False, target_base: Optional[str] = None, ending_punctuations: str = '․,։'):
+                           use_id: bool = False, target_base: Optional[str] = None, ending_punctuations: str = '․,։',
+                           vad_manifest: Optional[str] = None):
         """
         Create an instance by reading and processing a NEMO manifest and a transcript file.
 
@@ -351,7 +433,23 @@ class BaseAlignerVAC(ABC):
         create_nested_folders(target_base)
         create_nested_folders(save_manifest_path)
 
-        if transcript_path is None:
+        get_source_text = lambda x: None
+        if vad_manifest is not None:
+            combined_transcript = ""
+            path2text = {}
+            with open(vad_manifest, "r", encoding='utf-8') as f:
+               for line in f:
+                   item = json.loads(line)
+                   path2text[item['audio_filepath']] = item['text']
+                   combined_transcript += item['text']
+
+            def get_source_text(source_audio_path: str):
+                return path2text[source_audio_path]
+
+            print("Successfully created a combined transcript from the VAD manifest!")
+            with open("combined_transcript.txt", "w", encoding='utf-8') as f:
+                f.write(combined_transcript)
+        elif transcript_path is None:
             combined_transcript = ""
         else:
             with open(transcript_path, "r", encoding='utf-8') as f:
@@ -361,15 +459,17 @@ class BaseAlignerVAC(ABC):
         with open(manifest_file, "r", encoding='utf-8') as f:
             for line in f:
                 item = json.loads(line)
-                chunk = (item["audio_filepath"], item["pred_text"], item["duration"], item.get("id"))
+                sources = (item['source_audio'], get_source_text(item['source_audio']))
+                chunk = (item["audio_filepath"], item["pred_text"], item["duration"], sources, item.get("id"))
                 chunks.append(tuple(chunk))
                 if transcript_path is None:
-                    text = item["text"]
-                    if text[-1] not in ":,." + ending_punctuations:
-                        text = text + (ending_punctuations[-1] or "։")
-                    else:
-                        text = text + " "
-                    combined_transcript += text
+                    if not vad_manifest:
+                        text = item["text"]
+                        if text[-1] not in ":,." + ending_punctuations:
+                            text = text + (ending_punctuations[-1] or "։")
+                        else:
+                            text = text + " "
+                        combined_transcript += text
 
         if use_id:
             chunks = sorted(chunks, key=lambda x: x[-1])
