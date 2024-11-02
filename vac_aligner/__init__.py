@@ -19,7 +19,7 @@ Having multi hour long audio and texts, you can obtain many multi-second audio c
 
 __author__ = """Ara Yeroyan"""
 __email__ = 'ar23yeroyan@gmail.com'
-__version__ = '0.1.1'
+__version__ = '0.2.0'
 
 try:
     from .vac_pipeline import run_pipeline

@@ -25,7 +25,7 @@ class Benchmark:
             for line in f:
                 i += 1
                 item = json.loads(line)
-                orig_text = item["text"]
+                orig_text = item.get("text")
                 duration = item["duration"]
                 path = item["audio_filepath"]
                 if "\\" in path:

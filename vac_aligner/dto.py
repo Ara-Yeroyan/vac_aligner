@@ -9,6 +9,8 @@ class ChunkData:
     duration: float
     asr_prediction: str
     text: Optional[str] = None
+    source_text: Optional[str] = None
+    source_audio: Optional[str] = None
 
 
 @dataclass(frozen=True)
